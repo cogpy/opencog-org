@@ -2,7 +2,7 @@
 Differential operators for kernel reproduction and transformation.
 """
 
-from typing import Tuple
+from typing import Tuple, Optional
 import numpy as np
 
 from .core import OntogeneticKernel, KernelGene, GeneType
@@ -164,7 +164,3 @@ def mutate(kernel: OntogeneticKernel, rate: float = 0.1) -> None:
             coeffs[i] = np.clip(coeffs[i], 0.01, 1.0)
     
     kernel.base_kernel.coefficients = coeffs.tolist()
-
-
-# For compatibility with import
-from typing import Optional
