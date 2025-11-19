@@ -1,0 +1,159 @@
+{
+  "structure": {
+    "submodules": 0,
+    "file_types": {
+      ".py": 693,
+      ".scm": 1464,
+      ".cpp": 118,
+      ".h": 3445,
+      ".md": 657,
+      ".yml": 38,
+      ".sh": 396
+    },
+    "size": {
+      "total": "2.7G"
+    }
+  },
+  "documentation": {
+    "total_markdown": 723,
+    "readmes": 572,
+    "has_main_readme": true,
+    "has_contributing": false,
+    "has_license": true
+  },
+  "code_quality": {},
+  "testing": {},
+  "automation": {
+    "github_workflows": 25,
+    "scripts": 9,
+    "has_gitpod": true,
+    "workflow_files": [
+      "oc-cogutil.yml",
+      "oci.yml",
+      "clean.yml",
+      "oc.yml",
+      "guix.yml",
+      "generate-build-workflow.yml",
+      "cogci.yml",
+      "setup.yml",
+      "fetch.yml",
+      "opencog-ecosystem-build.yml",
+      "opencog-dependency-build.yml",
+      "ci-org-gen-3.yml",
+      "ocall.yml",
+      "efficient-build.yml",
+      "oci-atomspace.yml",
+      "ci-org-gen.yml",
+      "cogutil-test-2.yml",
+      "reposync.yml",
+      "oci-cogutil.yml",
+      "opencog-consolidated-build.yml",
+      "cogutil-test.yml",
+      "ci-org-gen-2.yml",
+      "sync.yml",
+      "main.yml",
+      "read.yml"
+    ]
+  },
+  "improvement_areas": [
+    {
+      "area": "Introspection Framework",
+      "priority": "HIGH",
+      "description": "No introspection implementation found. Need to create framework for self-analysis.",
+      "impact": "Enables copilot self-awareness and adaptive behavior"
+    },
+    {
+      "area": "Ontogenesis Framework",
+      "priority": "HIGH",
+      "description": "No ontogenesis implementation found. Need to create self-generating kernel system.",
+      "impact": "Enables self-evolving mathematical structures"
+    },
+    {
+      "area": "Python Integration",
+      "priority": "MEDIUM",
+      "description": "Limited Python tooling at root level. Could add more automation.",
+      "impact": "Better developer experience and automation"
+    },
+    {
+      "area": "Feature Documentation",
+      "priority": "MEDIUM",
+      "description": "New agent capabilities not documented in main README.",
+      "impact": "Users need to know about introspection and ontogenesis features"
+    }
+  ],
+  "agents": {
+    "total_agents": 64,
+    "agent_types": {
+      "integration": 50,
+      "computational": 10,
+      "conceptual": 2,
+      "mathematical": 2
+    },
+    "agent_files": [
+      "Marduk-Message.md",
+      "echo-state-pyper.md",
+      "personal-care-agent.md",
+      "msgops.md",
+      "Deep-Tree-Echo-and-Marduk-Role-Mapping.md",
+      "ONTOGENESIS.md",
+      "moerepos.md",
+      "nechuro.md",
+      "personal-care-agent-2.md",
+      "skin_zone_7_agents.md",
+      "marduk-v15.md",
+      "self.md",
+      "coggml-kernel.md",
+      "marduk-self.md",
+      "NANECHO.md",
+      "o9c.md",
+      "AGI-OS-Integration.md",
+      "relevance-realization-ennead.md",
+      "ghostintheguileshell.md",
+      "KoboldAI-OPT-350M-Erebus.md",
+      "zppformspec.md",
+      "vervaeke.md",
+      "siliconsage.md",
+      "A000055-OEIS.md",
+      "hypercog.md",
+      "AUTOGNOSIS.md",
+      "universal-kernel-generator.md",
+      "Yggdraphitecho.md",
+      "marduk_prompt.md",
+      "deep-tree-echo.md",
+      "COGPERSONAS.md",
+      "opencoq.md",
+      "lexicog.md",
+      "dte.md",
+      "A000081-OEIS.md",
+      "socrates.md",
+      "manus-overview.md",
+      "echo.md",
+      "deep-tree-echo-pilot.md",
+      "inferno-cog-limbo.md",
+      "DTE-Persona-Purpose-Projects.md",
+      "Gizmos.md",
+      "introspection.md",
+      "HOLISTIC_METAMODEL.md",
+      "Marduk-ML-AI-Workbench.md",
+      "skintwin.md",
+      "o9c2.md",
+      "opencog-org.md",
+      "marderebusk.md",
+      "echo-instructions.md",
+      "pifdocmagician.md",
+      "echoself.md",
+      "vm-daemon-sys.md",
+      "cogprime.md",
+      "psotheradrh.md",
+      "echobeats-3phase.md",
+      "rosettacog-full.md",
+      "neuro.md",
+      "bolt-cpp-ml.md",
+      "hegel.md",
+      "rubric-kern-os-plat.md",
+      "gguf.md",
+      "gitcog-builder.md",
+      "bootstralisp.md"
+    ]
+  }
+}

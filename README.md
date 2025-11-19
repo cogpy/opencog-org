@@ -1,6 +1,6 @@
 # OpenCog Organization Repository
 
-This repository contains the OpenCog ecosystem components and comprehensive build automation.
+This repository contains the OpenCog ecosystem components, comprehensive build automation, and advanced introspection & ontogenesis frameworks.
 
 ## 🚀 One-Click Gitpod Deployment
 
@@ -65,6 +65,44 @@ We've implemented a comprehensive GitHub Actions workflow that builds and instal
 - [Complete Documentation](docs/OPENCOG_DEPENDENCY_BUILD.md)
 - [Quick Start Guide](docs/QUICK_START_GUIDE.md)
 - [Dependency Diagrams](MERMAID_DIAGRAMS.md)
+
+## 🧬 Introspection & Ontogenesis Frameworks
+
+**NEW**: Self-aware, self-evolving systems based on recursive introspection and genetic kernels.
+
+### Features:
+- **Introspection Framework**: Recursive self-awareness for copilot agents
+  - Meta-cognitive introspection: `self.copilot(n) = introspection.self.copilot(n-1)`
+  - Self-optimization through grip maximization
+  - Differential operators (chain, product, quotient rules)
+  - Ontogenetic development stages
+  
+- **Ontogenesis Framework**: Self-generating mathematical kernels
+  - Self-generation via chain rule composition
+  - Genetic operators (crossover, mutation)
+  - Population evolution with fitness evaluation
+  - Domain-specific kernels (consciousness, physics, mathematics)
+
+### Quick Start:
+```bash
+# Install dependencies
+pip3 install numpy
+
+# Run introspection example
+python3 examples/introspection/basic_introspection.py
+
+# Run ontogenesis example
+python3 examples/ontogenesis/self_generation.py
+
+# Run evolution example
+python3 examples/ontogenesis/evolution_example.py
+```
+
+### Documentation:
+- [Introspection Agent Specification](.github/agents/introspection.md)
+- [Ontogenesis Agent Specification](.github/agents/ONTOGENESIS.md)
+- [Examples and Usage](examples/README.md)
+- [Introspection Analysis](INTROSPECTION_REPORT.md)
 
 ## Repository Structure
 

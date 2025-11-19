@@ -28,3 +28,9 @@ Makefile
 # Test files
 test-*.sh
 *-test.sh
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
