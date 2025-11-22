@@ -159,6 +159,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake libboost-all-dev python3-nose valgrind doxygen
+          
+          # Configure library paths for OpenCog libraries
+          echo "/usr/local/lib/opencog" | sudo tee /etc/ld.so.conf.d/opencog.conf
+          sudo ldconfig
 
       - name: Build cogutil
         run: |
@@ -197,6 +201,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake libboost-all-dev guile-3.0-dev cython3 python3-nose valgrind doxygen
+          
+          # Configure library paths for OpenCog libraries
+          echo "/usr/local/lib/opencog" | sudo tee /etc/ld.so.conf.d/opencog.conf
+          sudo ldconfig
 
       - name: Restore cogutil cache
         uses: actions/cache@v4
@@ -279,6 +287,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake libboost-all-dev librocksdb-dev guile-3.0-dev cython3 python3-nose valgrind doxygen
+          
+          # Configure library paths for OpenCog libraries
+          echo "/usr/local/lib/opencog" | sudo tee /etc/ld.so.conf.d/opencog.conf
+          sudo ldconfig
 
       - name: Install Cython
         run: python3 -m pip install --upgrade pip cython
@@ -514,6 +526,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake libboost-all-dev librocksdb-dev guile-3.0-dev cython3 python3-nose valgrind doxygen
+          
+          # Configure library paths for OpenCog libraries
+          echo "/usr/local/lib/opencog" | sudo tee /etc/ld.so.conf.d/opencog.conf
+          sudo ldconfig
 
       - name: Install Cython
         run: python3 -m pip install --upgrade pip cython
@@ -748,6 +764,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake libboost-all-dev libcpprest-dev guile-3.0-dev cython3 python3-nose valgrind doxygen
+          
+          # Configure library paths for OpenCog libraries
+          echo "/usr/local/lib/opencog" | sudo tee /etc/ld.so.conf.d/opencog.conf
+          sudo ldconfig
 
       - name: Install Cython
         run: python3 -m pip install --upgrade pip cython
@@ -902,6 +922,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake libboost-all-dev guile-3.0-dev cython3 python3-nose valgrind doxygen
+          
+          # Configure library paths for OpenCog libraries
+          echo "/usr/local/lib/opencog" | sudo tee /etc/ld.so.conf.d/opencog.conf
+          sudo ldconfig
 
       - name: Install Cython
         run: python3 -m pip install --upgrade pip cython
@@ -1073,6 +1097,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake libboost-all-dev guile-3.0-dev python3-nose valgrind doxygen liboctomap-dev
+          
+          # Configure library paths for OpenCog libraries
+          echo "/usr/local/lib/opencog" | sudo tee /etc/ld.so.conf.d/opencog.conf
+          sudo ldconfig
 
       - name: Install Cython
         run: python3 -m pip install --upgrade pip cython
@@ -1399,6 +1427,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake libboost-all-dev guile-3.0-dev python3-nose valgrind doxygen liboctomap-dev
+          
+          # Configure library paths for OpenCog libraries
+          echo "/usr/local/lib/opencog" | sudo tee /etc/ld.so.conf.d/opencog.conf
+          sudo ldconfig
 
       - name: Install Cython
         run: python3 -m pip install --upgrade pip cython
@@ -1725,6 +1757,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake libboost-all-dev python3-nose valgrind doxygen
+          
+          # Configure library paths for OpenCog libraries
+          echo "/usr/local/lib/opencog" | sudo tee /etc/ld.so.conf.d/opencog.conf
+          sudo ldconfig
 
       - name: Restore cogutil cache
         uses: actions/cache@v4
@@ -1769,6 +1805,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake libboost-all-dev guile-3.0-dev python3-nose valgrind doxygen liboctomap-dev
+          
+          # Configure library paths for OpenCog libraries
+          echo "/usr/local/lib/opencog" | sudo tee /etc/ld.so.conf.d/opencog.conf
+          sudo ldconfig
 
       - name: Install Cython
         run: python3 -m pip install --upgrade pip cython
@@ -2097,6 +2137,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential cmake libboost-all-dev guile-3.0-dev libssl-dev cython3 python3-nose python3-dev valgrind doxygen
           
+          # Configure library paths for OpenCog libraries
+          echo "/usr/local/lib/opencog" | sudo tee /etc/ld.so.conf.d/opencog.conf
+          sudo ldconfig
+          
       - name: Install Cython
         run: python3 -m pip install --upgrade pip cython
 
@@ -2346,6 +2390,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake libboost-all-dev librocksdb-dev guile-3.0-dev python3-nose valgrind doxygen
+          
+          # Configure library paths for OpenCog libraries
+          echo "/usr/local/lib/opencog" | sudo tee /etc/ld.so.conf.d/opencog.conf
+          sudo ldconfig
 
       - name: Install Cython
         run: python3 -m pip install --upgrade pip cython
@@ -2764,6 +2812,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake libboost-all-dev guile-3.0-dev cython3 python3-nose valgrind doxygen
+          
+          # Configure library paths for OpenCog libraries
+          echo "/usr/local/lib/opencog" | sudo tee /etc/ld.so.conf.d/opencog.conf
+          sudo ldconfig
 
       - name: Install Cython
         run: python3 -m pip install --upgrade pip cython
@@ -3083,6 +3135,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake libboost-all-dev guile-3.0-dev cython3 python3-nose valgrind doxygen
+          
+          # Configure library paths for OpenCog libraries
+          echo "/usr/local/lib/opencog" | sudo tee /etc/ld.so.conf.d/opencog.conf
+          sudo ldconfig
 
       - name: Install Cython
         run: python3 -m pip install --upgrade pip cython
@@ -3309,6 +3365,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake libboost-all-dev python3-nose python3-pip python3-dev
+          
+          # Configure library paths for OpenCog libraries
+          echo "/usr/local/lib/opencog" | sudo tee /etc/ld.so.conf.d/opencog.conf
+          sudo ldconfig
 
       - name: Install Python dependencies
         run: |
@@ -3432,6 +3492,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake libboost-all-dev guile-3.0-dev cython3 python3-nose python3-rospy python3-catkin-tools python3-dev
+          
+          # Configure library paths for OpenCog libraries
+          echo "/usr/local/lib/opencog" | sudo tee /etc/ld.so.conf.d/opencog.conf
+          sudo ldconfig
 
       - name: Install Cython
         run: python3 -m pip install --upgrade pip cython
@@ -3639,6 +3703,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake libboost-all-dev librocksdb-dev guile-3.0-dev python3-nose valgrind doxygen liboctomap-dev
+          
+          # Configure library paths for OpenCog libraries
+          echo "/usr/local/lib/opencog" | sudo tee /etc/ld.so.conf.d/opencog.conf
+          sudo ldconfig
 
       - name: Install Cython
         run: python3 -m pip install --upgrade pip cython
