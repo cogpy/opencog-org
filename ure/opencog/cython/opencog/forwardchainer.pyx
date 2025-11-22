@@ -19,6 +19,8 @@ cdef class ForwardChainer:
                   AtomSpace trace_as=None,
                   focus_set=[]):
         cdef cHandle c_vardecl
+        cdef cAtomSpace* c_trace_as = NULL
+        
         if vardecl is None:
             c_vardecl = c_vardecl.UNDEFINED
         else:
@@ -28,13 +30,18 @@ cdef class ForwardChainer:
         for atom in focus_set:
             if isinstance(atom, Atom):
                 handle_vector.push_back(deref((<Atom>(atom)).handle))
+        
+        # Get pointer to trace atomspace
+        if trace_as is not None:
+            c_trace_as = trace_as.atomspace
+            
         cdef AtomSpace rbs_as = rbs.atomspace
         self.chainer = new cForwardChainer(deref(_as.atomspace),
                                         deref(rbs_as.atomspace),
                                         deref(rbs.handle),
                                         deref(source.handle),
                                         c_vardecl,
-                                        <cAtomSpace*> (NULL if trace_as is None else trace_as.atomspace),
+                                        c_trace_as,
                                         handle_vector)
         self._as = _as
         self._trace_as = trace_as
@@ -44,8 +51,7 @@ cdef class ForwardChainer:
 
     def get_results(self):
         cdef cHandle res_handle = self.chainer.get_results()
-        cdef Atom result = Atom.createAtom(res_handle)
-        return result
+        return Atom.createAtom(res_handle)
 
     def __dealloc__(self):
         del self.chainer
