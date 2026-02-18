@@ -518,7 +518,7 @@ jobs:
 
   atomspace-rocks:
     runs-on: ubuntu-latest
-    needs: [atomspace]
+    needs: [atomspace-storage]
     steps:
       - uses: actions/checkout@v4
 
@@ -2128,7 +2128,7 @@ jobs:
   # ==== Server Infrastructure ====
   cogserver:
     runs-on: ubuntu-latest
-    needs: [atomspace]
+    needs: [atomspace-storage]
     steps:
       - uses: actions/checkout@v4
       
@@ -3127,7 +3127,7 @@ jobs:
   # ==== Language Processing ====
   lg-atomese:
     runs-on: ubuntu-latest
-    needs: [atomspace]
+    needs: [atomspace-storage]
     steps:
       - uses: actions/checkout@v4
 
