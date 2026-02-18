@@ -1,3 +1,8 @@
+[project]
+name = "opencog-introspection-ontogenesis"
+version = "1.0.0"
+requires-python = ">=3.9"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]

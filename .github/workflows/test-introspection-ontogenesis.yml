@@ -18,10 +18,16 @@ on:
       - 'tests/**'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Test on Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
     
     strategy:
       matrix:
@@ -76,6 +82,9 @@ jobs:
     name: Validate Examples
     runs-on: ubuntu-latest
     
+    permissions:
+      contents: read
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -112,6 +121,9 @@ jobs:
   lint:
     name: Code Quality
     runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
     
     steps:
       - name: Checkout code
