@@ -1,0 +1,17 @@
+# Testing and Development Requirements
+
+## Core Dependencies
+numpy>=1.20.0
+
+## Testing
+pytest>=7.0.0
+pytest-cov>=4.0.0
+
+## Code Quality (optional)
+flake8>=6.0.0
+pylint>=2.15.0
+black>=22.0.0
+
+## Documentation (optional)
+sphinx>=5.0.0
+sphinx-rtd-theme>=1.0.0

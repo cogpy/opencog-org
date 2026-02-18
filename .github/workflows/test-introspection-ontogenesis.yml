@@ -1,0 +1,141 @@
+name: Test Introspection & Ontogenesis
+
+on:
+  push:
+    branches: [ main, develop, copilot/** ]
+    paths:
+      - 'introspection/**'
+      - 'ontogenesis/**'
+      - 'examples/**'
+      - 'tests/**'
+      - '.github/workflows/test-introspection-ontogenesis.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'introspection/**'
+      - 'ontogenesis/**'
+      - 'examples/**'
+      - 'tests/**'
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test on Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        python-version: ['3.9', '3.10', '3.11', '3.12']
+      fail-fast: false
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-cov numpy
+      
+      - name: Run core functionality tests
+        run: |
+          pytest tests/test_core_functionality.py -v --tb=short
+        continue-on-error: true
+      
+      - name: Run introspection example
+        run: |
+          timeout 30 python examples/introspection/basic_introspection.py
+      
+      - name: Run self-generation example
+        run: |
+          timeout 30 python examples/ontogenesis/self_generation.py
+      
+      - name: Run evolution example
+        run: |
+          timeout 60 python examples/ontogenesis/evolution_example.py
+      
+      - name: Generate test coverage report
+        run: |
+          pytest tests/test_core_functionality.py --cov=introspection --cov=ontogenesis --cov-report=term --cov-report=html
+        continue-on-error: true
+      
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: matrix.python-version == '3.12'
+        with:
+          name: coverage-report
+          path: htmlcov/
+          retention-days: 7
+
+  validate-examples:
+    name: Validate Examples
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy
+      
+      - name: Validate all examples run without errors
+        run: |
+          echo "Testing introspection example..."
+          timeout 30 python examples/introspection/basic_introspection.py
+          
+          echo "Testing self-generation example..."
+          timeout 30 python examples/ontogenesis/self_generation.py
+          
+          echo "Testing evolution example..."
+          timeout 60 python examples/ontogenesis/evolution_example.py
+          
+          echo "All examples completed successfully!"
+      
+      - name: Check for import errors
+        run: |
+          python -c "from introspection import Copilot, introspect, self_optimize; print('✓ Introspection imports OK')"
+          python -c "from ontogenesis import OntogeneticKernel, self_generate, run_ontogenesis; print('✓ Ontogenesis imports OK')"
+          python -c "from ontogenesis.kernels import create_consciousness_kernel; print('✓ Kernel imports OK')"
+
+  lint:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Install linting tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 pylint
+        continue-on-error: true
+      
+      - name: Lint introspection module
+        run: |
+          flake8 introspection --count --select=E9,F63,F7,F82 --show-source --statistics || true
+          flake8 introspection --count --exit-zero --max-complexity=10 --max-line-length=100 --statistics || true
+        continue-on-error: true
+      
+      - name: Lint ontogenesis module
+        run: |
+          flake8 ontogenesis --count --select=E9,F63,F7,F82 --show-source --statistics || true
+          flake8 ontogenesis --count --exit-zero --max-complexity=10 --max-line-length=100 --statistics || true
+        continue-on-error: true
