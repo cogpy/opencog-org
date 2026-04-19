@@ -472,7 +472,7 @@ jobs:
 
           # Find the AtomSpaceStorage library
           find_library(ATOMSPACE_STORAGE_LIBRARIES
-              NAMES persist-rocks
+              NAMES persist
               PATHS /usr/local/lib/opencog
               NO_DEFAULT_PATH
           )
@@ -2838,7 +2838,7 @@ jobs:
 
           # Find the AtomSpaceStorage library
           find_library(ATOMSPACE_STORAGE_LIBRARIES
-              NAMES persist-rocks
+              NAMES persist
               PATHS /usr/local/lib/opencog
               NO_DEFAULT_PATH
           )
@@ -3174,7 +3174,7 @@ jobs:
 
           # Find the AtomSpaceStorage library
           find_library(ATOMSPACE_STORAGE_LIBRARIES
-              NAMES persist-rocks
+              NAMES persist
               PATHS /usr/local/lib/opencog
               NO_DEFAULT_PATH
           )
@@ -4503,7 +4503,7 @@ jobs:
 
           # Find the AtomSpaceStorage library
           find_library(ATOMSPACE_STORAGE_LIBRARIES
-              NAMES persist-rocks
+              NAMES persist
               PATHS /usr/local/lib/opencog
               NO_DEFAULT_PATH
           )
