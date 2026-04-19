@@ -1,0 +1,17 @@
+on:
+  github:
+    push:
+      init:
+        commit-sha: ${{ event.git.sha }}
+
+base:
+  image: ubuntu:24.04
+  config: rwx/base 1.0.2
+
+tasks:
+  - key: code
+    call: git/clone 2.0.3
+    with:
+      repository: https://github.com/cogpy/opencog-org.git
+      ref: ${{ init.commit-sha }}
+      github-token: ${{ github.token }}
