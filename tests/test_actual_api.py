@@ -165,21 +165,47 @@ class TestGripComponents:
                                completeness=1.0, elegance=1.0)
         assert grip.total_grip() == pytest.approx(1.0)
 
+    def test_total_grip_weighted_formula(self):
+        """Explicitly validate the documented formula:
+        0.3*understanding + 0.3*correctness + 0.2*efficiency + 0.1*completeness + 0.1*elegance
+        """
+        from introspection.metrics import GripComponents
+        grip = GripComponents(
+            understanding=0.8, correctness=0.6, efficiency=0.4,
+            completeness=0.2, elegance=0.1
+        )
+        expected = 0.3 * 0.8 + 0.3 * 0.6 + 0.2 * 0.4 + 0.1 * 0.2 + 0.1 * 0.1
+        assert grip.total_grip() == pytest.approx(expected)
+
     def test_total_grip_weights(self):
-        """Verify the documented 0.3/0.3/0.2/0.1/0.1 weighting."""
+        """Verify the understanding coefficient (0.3)."""
         grip = self._make_grip(understanding=1.0, correctness=0.0, efficiency=0.0,
                                completeness=0.0, elegance=0.0)
         assert grip.total_grip() == pytest.approx(0.3)
 
     def test_total_grip_understanding_weight(self):
+        """Verify the correctness coefficient (0.3)."""
         grip = self._make_grip(understanding=0.0, correctness=1.0, efficiency=0.0,
                                completeness=0.0, elegance=0.0)
         assert grip.total_grip() == pytest.approx(0.3)
 
     def test_total_grip_efficiency_weight(self):
+        """Verify the efficiency coefficient (0.2)."""
         grip = self._make_grip(understanding=0.0, correctness=0.0, efficiency=1.0,
                                completeness=0.0, elegance=0.0)
         assert grip.total_grip() == pytest.approx(0.2)
+
+    def test_total_grip_completeness_weight(self):
+        """Verify the completeness coefficient (0.1)."""
+        grip = self._make_grip(understanding=0.0, correctness=0.0, efficiency=0.0,
+                               completeness=1.0, elegance=0.0)
+        assert grip.total_grip() == pytest.approx(0.1)
+
+    def test_total_grip_elegance_weight(self):
+        """Verify the elegance coefficient (0.1)."""
+        grip = self._make_grip(understanding=0.0, correctness=0.0, efficiency=0.0,
+                               completeness=0.0, elegance=1.0)
+        assert grip.total_grip() == pytest.approx(0.1)
 
 
 class TestFitnessEvaluationActual:
@@ -1008,17 +1034,17 @@ class TestTournamentSelection:
         assert winner in pop
 
     def test_selects_highest_fitness_winner(self):
-        """With a single best individual, it should appear in results more often than chance."""
+        """With a single best individual, it should appear significantly more than chance."""
         from ontogenesis.evolution import tournament_selection
         pop = self._make_population(10)
         fitnesses = [0.0] * 9 + [1.0]
-        # With tournament_size=3, prob best is selected per run ≈ 0.30
-        # In 100 runs, expected wins ≈ 30, assert at least 10 to avoid flakiness
+        # With tournament_size=3 and population=10, P(best is picked per run) ≈ 0.3.
+        # Expected wins in 100 runs ≈ 30. Assert at least 20 (well below mean).
         wins = sum(
             tournament_selection(pop, fitnesses) is pop[9]
             for _ in range(100)
         )
-        assert wins >= 10
+        assert wins >= 20
 
 
 class TestCalculatePopulationDiversity:
@@ -1173,7 +1199,8 @@ class TestRunOntogenesisActual:
     def test_convergence_stops_early(self):
         from ontogenesis.evolution import run_ontogenesis, OntogenesisConfig, EvolutionConfig
         from ontogenesis.core import initialize_ontogenetic_kernel
-        # All coefficients near optimal → fitness should be high → stop early
+        # Fitness threshold of 0.0 means best_fitness >= 0.0 is always true after the
+        # first generation, so the loop breaks after recording generation 0.
         seeds = []
         for _ in range(5):
             k = initialize_ontogenetic_kernel(order=2)
@@ -1183,12 +1210,13 @@ class TestRunOntogenesisActual:
             evolution=EvolutionConfig(
                 population_size=5,
                 max_generations=100,
-                fitness_threshold=0.0,  # always converge immediately
+                # Any non-negative fitness satisfies this threshold immediately
+                fitness_threshold=0.0,
             ),
             seed_kernels=seeds,
         )
         results = run_ontogenesis(config)
-        assert len(results) == 1  # Should stop after first generation
+        assert len(results) == 1  # Stops after the first generation
 
 
 class TestEvolutionConfig:
