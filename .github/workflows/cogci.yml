@@ -673,7 +673,7 @@ jobs:
           # Set library path for linking
           export LD_LIBRARY_PATH=/usr/local/lib/opencog:$LD_LIBRARY_PATH
           export LIBRARY_PATH=/usr/local/lib/opencog:$LIBRARY_PATH
-          cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_LIBRARY_PATH=/usr/local/lib/opencog
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DPYTHON_EXECUTABLE=$(which python3) -DCMAKE_LIBRARY_PATH=/usr/local/lib/opencog
           make -j$(nproc)
           sudo make install
           sudo ldconfig
@@ -2375,7 +2375,7 @@ jobs:
           # Set library path for linking
           export LD_LIBRARY_PATH=/usr/local/lib/opencog:$LD_LIBRARY_PATH
           export LIBRARY_PATH=/usr/local/lib/opencog:$LIBRARY_PATH
-          cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_LIBRARY_PATH=/usr/local/lib/opencog
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DPYTHON_EXECUTABLE=$(which python3) -DCMAKE_LIBRARY_PATH=/usr/local/lib/opencog
           make -j$(nproc)
           sudo make install
           sudo ldconfig
@@ -3557,7 +3557,7 @@ jobs:
           # Set library path for linking
           export LD_LIBRARY_PATH=/usr/local/lib/opencog:$LD_LIBRARY_PATH
           export LIBRARY_PATH=/usr/local/lib/opencog:$LIBRARY_PATH
-          cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_LIBRARY_PATH=/usr/local/lib/opencog
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DPYTHON_EXECUTABLE=$(which python3) -DCMAKE_LIBRARY_PATH=/usr/local/lib/opencog
           make -j$(nproc)
           sudo make install
           sudo ldconfig
