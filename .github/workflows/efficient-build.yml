@@ -85,14 +85,14 @@ jobs:
         uses: actions/cache@v3
         with:
           path: |
-            orc-dv/cogutil/build
+            cogutil/build
             ${{ env.INSTALL_PREFIX }}
-          key: cogutil-${{ runner.os }}-${{ hashFiles('orc-dv/cogutil/**') }}
+          key: cogutil-${{ runner.os }}-${{ hashFiles('cogutil/**') }}
           
       - name: Build cogutil
         if: steps.cogutil-cache.outputs.cache-hit != 'true'
         run: |
-          cd orc-dv/cogutil
+          cd cogutil
           mkdir -p build && cd build
           cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=${{ env.INSTALL_PREFIX }} \
             -DBOOST_ROOT=/tmp/deps/miniconda -DCMAKE_PREFIX_PATH=/tmp/deps/miniconda
@@ -104,17 +104,14 @@ jobs:
         uses: actions/cache@v3
         with:
           path: |
-            orc-as/atomspace/build
+            atomspace/build
             ${{ env.INSTALL_PREFIX }}
-          key: atomspace-${{ runner.os }}-${{ hashFiles('orc-as/atomspace/**') }}-${{ steps.cogutil-cache.outputs.cache-primary-key }}
+          key: atomspace-${{ runner.os }}-${{ hashFiles('atomspace/**') }}-${{ steps.cogutil-cache.outputs.cache-primary-key }}
           
       - name: Build atomspace
         if: steps.atomspace-cache.outputs.cache-hit != 'true'
         run: |
-          cd orc-as/atomspace
-          # Create lib directory if missing
-          mkdir -p lib
-          echo "# Build compatibility" > lib/CMakeLists.txt
+          cd atomspace
           
           mkdir -p build && cd build
           cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=${{ env.INSTALL_PREFIX }} \
@@ -129,9 +126,9 @@ jobs:
     strategy:
       matrix:
         component:
-          - { name: "ure", path: "orc-ai/ure", needs_unify: true }
-          - { name: "moses", path: "orc-ai/moses", needs_unify: false }
-          - { name: "cogserver", path: "orc-sv/cogserver", needs_unify: false }
+          - { name: "ure", path: "ure", needs_unify: true }
+          - { name: "moses", path: "moses", needs_unify: false }
+          - { name: "cogserver", path: "cogserver", needs_unify: false }
     steps:
       - uses: actions/checkout@v4
       
@@ -145,7 +142,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: |
-            orc-dv/cogutil/build
+            cogutil/build
             ${{ env.INSTALL_PREFIX }}
           key: ${{ needs.build-foundation.outputs.cogutil-cache-key }}
           
@@ -154,7 +151,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: |
-            orc-as/atomspace/build
+            atomspace/build
             ${{ env.INSTALL_PREFIX }}
           key: ${{ needs.build-foundation.outputs.atomspace-cache-key }}
           

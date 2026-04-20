@@ -13,7 +13,7 @@ permissions:
 
 env:
   CMAKE_BUILD_TYPE: Release
-  MAKEFLAGS: "-j$(nproc)"
+  MAKEFLAGS: -j2
 
 jobs:
   # ==== Foundation Layer ====
