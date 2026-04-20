@@ -472,7 +472,7 @@ jobs:
 
           # Find the AtomSpaceStorage library
           find_library(ATOMSPACE_STORAGE_LIBRARIES
-              NAMES persist-rocks
+              NAMES persist
               PATHS /usr/local/lib/opencog
               NO_DEFAULT_PATH
           )
@@ -656,6 +656,99 @@ jobs:
           endif()
           EOF
 
+
+      - name: Build and install atomspace-storage
+        run: |
+          # Build and install atomspace-storage (required by atomspace-rocks)
+          cd atomspace-storage
+          # Create missing lib directory if it doesn't exist
+          if [ ! -d "lib" ]; then
+            mkdir -p lib
+            echo "# Empty lib directory for build compatibility" > lib/CMakeLists.txt
+          fi
+          if [ ! -d "build" ]; then
+            mkdir -p build
+          fi
+          cd build
+          # Set library path for linking
+          export LD_LIBRARY_PATH=/usr/local/lib/opencog:$LD_LIBRARY_PATH
+          export LIBRARY_PATH=/usr/local/lib/opencog:$LIBRARY_PATH
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DPYTHON_EXECUTABLE=$(which python3) -DCMAKE_LIBRARY_PATH=/usr/local/lib/opencog
+          make -j$(nproc)
+          sudo make install
+          sudo ldconfig
+
+          # Create AtomSpaceStorage CMake config files for dependent projects
+          sudo mkdir -p /usr/local/lib/cmake/AtomSpaceStorage
+          sudo tee /usr/local/lib/cmake/AtomSpaceStorage/AtomSpaceStorageConfig.cmake > /dev/null <<'EOF'
+          # AtomSpaceStorageConfig.cmake - Minimal config file for AtomSpaceStorage
+
+          # Set version information
+          set(PACKAGE_VERSION "1.3.0")
+          set(AtomSpaceStorage_VERSION "1.3.0")
+          set(ATOMSPACE_STORAGE_VERSION "1.3.0")
+
+          # Version compatibility check
+          set(PACKAGE_VERSION_EXACT FALSE)
+          set(PACKAGE_VERSION_COMPATIBLE TRUE)
+          set(PACKAGE_VERSION_UNSUITABLE FALSE)
+
+          # Set basic variables
+          set(ATOMSPACE_STORAGE_FOUND TRUE)
+          set(AtomSpaceStorage_FOUND TRUE)
+
+          # Set include directories
+          set(ATOMSPACE_STORAGE_INCLUDE_DIRS "/usr/local/include")
+          set(AtomSpaceStorage_INCLUDE_DIRS "/usr/local/include")
+
+          # Set library directories and libraries
+          set(ATOMSPACE_STORAGE_LIBRARY_DIRS "/usr/local/lib/opencog")
+          set(AtomSpaceStorage_LIBRARY_DIRS "/usr/local/lib/opencog")
+
+          # Find the atomspace-storage library
+          find_library(ATOMSPACE_STORAGE_LIBRARIES
+              NAMES persist
+              PATHS /usr/local/lib/opencog
+              NO_DEFAULT_PATH
+          )
+
+          set(AtomSpaceStorage_LIBRARIES ${ATOMSPACE_STORAGE_LIBRARIES})
+
+          # Set other common variables
+          set(ATOMSPACE_STORAGE_DATA_DIR "/usr/local/share/opencog")
+          set(AtomSpaceStorage_DATA_DIR "/usr/local/share/opencog")
+
+          # Mark as found
+          set(ATOMSPACE_STORAGE_FOUND TRUE)
+          set(AtomSpaceStorage_FOUND TRUE)
+
+          # Export targets (minimal)
+          if(NOT TARGET atomspace-storage::atomspace-storage)
+              add_library(atomspace-storage::atomspace-storage SHARED IMPORTED)
+              set_target_properties(atomspace-storage::atomspace-storage PROPERTIES
+                  IMPORTED_LOCATION "${ATOMSPACE_STORAGE_LIBRARIES}"
+                  INTERFACE_INCLUDE_DIRECTORIES "${ATOMSPACE_STORAGE_INCLUDE_DIRS}"
+              )
+          endif()
+
+          message(STATUS "Found AtomSpaceStorage: ${ATOMSPACE_STORAGE_LIBRARIES}")
+          EOF
+
+          sudo tee /usr/local/lib/cmake/AtomSpaceStorage/AtomSpaceStorageConfigVersion.cmake > /dev/null <<'EOF'
+          # AtomSpaceStorageConfigVersion.cmake - Version file for AtomSpaceStorage
+
+          set(PACKAGE_VERSION "1.3.0")
+
+          # Check whether the requested PACKAGE_FIND_VERSION is compatible
+          if("${PACKAGE_VERSION}" VERSION_LESS "${PACKAGE_FIND_VERSION}")
+            set(PACKAGE_VERSION_COMPATIBLE FALSE)
+          else()
+            set(PACKAGE_VERSION_COMPATIBLE TRUE)
+            if ("${PACKAGE_VERSION}" VERSION_EQUAL "${PACKAGE_FIND_VERSION}")
+              set(PACKAGE_VERSION_EXACT TRUE)
+            endif()
+          endif()
+          EOF
       - name: Build AtomSpace Rocks
         run: |
           cd atomspace-rocks
@@ -2282,7 +2375,7 @@ jobs:
           # Set library path for linking
           export LD_LIBRARY_PATH=/usr/local/lib/opencog:$LD_LIBRARY_PATH
           export LIBRARY_PATH=/usr/local/lib/opencog:$LIBRARY_PATH
-          cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_LIBRARY_PATH=/usr/local/lib/opencog
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DPYTHON_EXECUTABLE=$(which python3) -DCMAKE_LIBRARY_PATH=/usr/local/lib/opencog
           make -j$(nproc)
           sudo make install
           sudo ldconfig
@@ -2295,7 +2388,7 @@ jobs:
           # Set version information
           set(PACKAGE_VERSION "5.0.3")
           set(AtomSpaceStorage_VERSION "5.0.3")
-          set(ATOMSPACESTORAGE_VERSION "5.0.3")
+          set(ATOMSPACE_STORAGE_VERSION "5.0.3")
 
           # Version compatibility check
           set(PACKAGE_VERSION_EXACT FALSE)
@@ -2303,44 +2396,44 @@ jobs:
           set(PACKAGE_VERSION_UNSUITABLE FALSE)
 
           # Set basic variables
-          set(ATOMSPACESTORAGE_FOUND TRUE)
+          set(ATOMSPACE_STORAGE_FOUND TRUE)
           set(AtomSpaceStorage_FOUND TRUE)
 
           # Set include directories
-          set(ATOMSPACESTORAGE_INCLUDE_DIRS "/usr/local/include")
+          set(ATOMSPACE_STORAGE_INCLUDE_DIRS "/usr/local/include")
           set(AtomSpaceStorage_INCLUDE_DIRS "/usr/local/include")
 
           # Set library directories and libraries
-          set(ATOMSPACESTORAGE_LIBRARY_DIRS "/usr/local/lib/opencog")
+          set(ATOMSPACE_STORAGE_LIBRARY_DIRS "/usr/local/lib/opencog")
           set(AtomSpaceStorage_LIBRARY_DIRS "/usr/local/lib/opencog")
 
           # Find the atomspace-storage library
-          find_library(ATOMSPACESTORAGE_LIBRARIES
-              NAMES atomspace-storage
+          find_library(ATOMSPACE_STORAGE_LIBRARIES
+              NAMES persist
               PATHS /usr/local/lib/opencog
               NO_DEFAULT_PATH
           )
 
-          set(AtomSpaceStorage_LIBRARIES \${ATOMSPACESTORAGE_LIBRARIES})
+          set(AtomSpaceStorage_LIBRARIES ${ATOMSPACE_STORAGE_LIBRARIES})
 
           # Set other common variables
-          set(ATOMSPACESTORAGE_DATA_DIR "/usr/local/share/opencog")
+          set(ATOMSPACE_STORAGE_DATA_DIR "/usr/local/share/opencog")
           set(AtomSpaceStorage_DATA_DIR "/usr/local/share/opencog")
 
           # Mark as found
-          set(ATOMSPACESTORAGE_FOUND TRUE)
+          set(ATOMSPACE_STORAGE_FOUND TRUE)
           set(AtomSpaceStorage_FOUND TRUE)
 
           # Export targets (minimal)
           if(NOT TARGET atomspace-storage::atomspace-storage)
               add_library(atomspace-storage::atomspace-storage SHARED IMPORTED)
               set_target_properties(atomspace-storage::atomspace-storage PROPERTIES
-                  IMPORTED_LOCATION "\${ATOMSPACESTORAGE_LIBRARIES}"
-                  INTERFACE_INCLUDE_DIRECTORIES "\${ATOMSPACESTORAGE_INCLUDE_DIRS}"
+                  IMPORTED_LOCATION "${ATOMSPACE_STORAGE_LIBRARIES}"
+                  INTERFACE_INCLUDE_DIRECTORIES "${ATOMSPACE_STORAGE_INCLUDE_DIRS}"
               )
           endif()
 
-          message(STATUS "Found AtomSpaceStorage: \${ATOMSPACESTORAGE_LIBRARIES}")
+          message(STATUS "Found AtomSpaceStorage: ${ATOMSPACE_STORAGE_LIBRARIES}")
           EOF
           
           sudo tee /usr/local/lib/cmake/AtomSpaceStorage/AtomSpaceStorageConfigVersion.cmake > /dev/null <<'EOF'
@@ -2349,11 +2442,11 @@ jobs:
           set(PACKAGE_VERSION "5.0.3")
 
           # Check whether the requested PACKAGE_FIND_VERSION is compatible
-          if("\${PACKAGE_VERSION}" VERSION_LESS "\${PACKAGE_FIND_VERSION}")
+          if("${PACKAGE_VERSION}" VERSION_LESS "${PACKAGE_FIND_VERSION}")
             set(PACKAGE_VERSION_COMPATIBLE FALSE)
           else()
             set(PACKAGE_VERSION_COMPATIBLE TRUE)
-            if ("\${PACKAGE_VERSION}" VERSION_EQUAL "\${PACKAGE_FIND_VERSION}")
+            if ("${PACKAGE_VERSION}" VERSION_EQUAL "${PACKAGE_FIND_VERSION}")
               set(PACKAGE_VERSION_EXACT TRUE)
             endif()
           endif()
@@ -2745,7 +2838,7 @@ jobs:
 
           # Find the AtomSpaceStorage library
           find_library(ATOMSPACE_STORAGE_LIBRARIES
-              NAMES persist-rocks
+              NAMES persist
               PATHS /usr/local/lib/opencog
               NO_DEFAULT_PATH
           )
@@ -3081,7 +3174,7 @@ jobs:
 
           # Find the AtomSpaceStorage library
           find_library(ATOMSPACE_STORAGE_LIBRARIES
-              NAMES persist-rocks
+              NAMES persist
               PATHS /usr/local/lib/opencog
               NO_DEFAULT_PATH
           )
@@ -3447,6 +3540,99 @@ jobs:
           endif()
           EOF
 
+
+      - name: Build and install atomspace-storage
+        run: |
+          # Build and install atomspace-storage (required by lg-atomese)
+          cd atomspace-storage
+          # Create missing lib directory if it doesn't exist
+          if [ ! -d "lib" ]; then
+            mkdir -p lib
+            echo "# Empty lib directory for build compatibility" > lib/CMakeLists.txt
+          fi
+          if [ ! -d "build" ]; then
+            mkdir -p build
+          fi
+          cd build
+          # Set library path for linking
+          export LD_LIBRARY_PATH=/usr/local/lib/opencog:$LD_LIBRARY_PATH
+          export LIBRARY_PATH=/usr/local/lib/opencog:$LIBRARY_PATH
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DPYTHON_EXECUTABLE=$(which python3) -DCMAKE_LIBRARY_PATH=/usr/local/lib/opencog
+          make -j$(nproc)
+          sudo make install
+          sudo ldconfig
+
+          # Create AtomSpaceStorage CMake config files for dependent projects
+          sudo mkdir -p /usr/local/lib/cmake/AtomSpaceStorage
+          sudo tee /usr/local/lib/cmake/AtomSpaceStorage/AtomSpaceStorageConfig.cmake > /dev/null <<'EOF'
+          # AtomSpaceStorageConfig.cmake - Minimal config file for AtomSpaceStorage
+
+          # Set version information
+          set(PACKAGE_VERSION "1.3.0")
+          set(AtomSpaceStorage_VERSION "1.3.0")
+          set(ATOMSPACE_STORAGE_VERSION "1.3.0")
+
+          # Version compatibility check
+          set(PACKAGE_VERSION_EXACT FALSE)
+          set(PACKAGE_VERSION_COMPATIBLE TRUE)
+          set(PACKAGE_VERSION_UNSUITABLE FALSE)
+
+          # Set basic variables
+          set(ATOMSPACE_STORAGE_FOUND TRUE)
+          set(AtomSpaceStorage_FOUND TRUE)
+
+          # Set include directories
+          set(ATOMSPACE_STORAGE_INCLUDE_DIRS "/usr/local/include")
+          set(AtomSpaceStorage_INCLUDE_DIRS "/usr/local/include")
+
+          # Set library directories and libraries
+          set(ATOMSPACE_STORAGE_LIBRARY_DIRS "/usr/local/lib/opencog")
+          set(AtomSpaceStorage_LIBRARY_DIRS "/usr/local/lib/opencog")
+
+          # Find the atomspace-storage library
+          find_library(ATOMSPACE_STORAGE_LIBRARIES
+              NAMES persist
+              PATHS /usr/local/lib/opencog
+              NO_DEFAULT_PATH
+          )
+
+          set(AtomSpaceStorage_LIBRARIES ${ATOMSPACE_STORAGE_LIBRARIES})
+
+          # Set other common variables
+          set(ATOMSPACE_STORAGE_DATA_DIR "/usr/local/share/opencog")
+          set(AtomSpaceStorage_DATA_DIR "/usr/local/share/opencog")
+
+          # Mark as found
+          set(ATOMSPACE_STORAGE_FOUND TRUE)
+          set(AtomSpaceStorage_FOUND TRUE)
+
+          # Export targets (minimal)
+          if(NOT TARGET atomspace-storage::atomspace-storage)
+              add_library(atomspace-storage::atomspace-storage SHARED IMPORTED)
+              set_target_properties(atomspace-storage::atomspace-storage PROPERTIES
+                  IMPORTED_LOCATION "${ATOMSPACE_STORAGE_LIBRARIES}"
+                  INTERFACE_INCLUDE_DIRECTORIES "${ATOMSPACE_STORAGE_INCLUDE_DIRS}"
+              )
+          endif()
+
+          message(STATUS "Found AtomSpaceStorage: ${ATOMSPACE_STORAGE_LIBRARIES}")
+          EOF
+
+          sudo tee /usr/local/lib/cmake/AtomSpaceStorage/AtomSpaceStorageConfigVersion.cmake > /dev/null <<'EOF'
+          # AtomSpaceStorageConfigVersion.cmake - Version file for AtomSpaceStorage
+
+          set(PACKAGE_VERSION "1.3.0")
+
+          # Check whether the requested PACKAGE_FIND_VERSION is compatible
+          if("${PACKAGE_VERSION}" VERSION_LESS "${PACKAGE_FIND_VERSION}")
+            set(PACKAGE_VERSION_COMPATIBLE FALSE)
+          else()
+            set(PACKAGE_VERSION_COMPATIBLE TRUE)
+            if ("${PACKAGE_VERSION}" VERSION_EQUAL "${PACKAGE_FIND_VERSION}")
+              set(PACKAGE_VERSION_EXACT TRUE)
+            endif()
+          endif()
+          EOF
       - name: Build LG-Atomese
         run: |
           cd lg-atomese
@@ -4317,7 +4503,7 @@ jobs:
 
           # Find the AtomSpaceStorage library
           find_library(ATOMSPACE_STORAGE_LIBRARIES
-              NAMES persist-rocks
+              NAMES persist
               PATHS /usr/local/lib/opencog
               NO_DEFAULT_PATH
           )
