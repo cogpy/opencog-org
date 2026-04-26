@@ -70,8 +70,9 @@ jobs:
         run: |
           # Clean existing directory
           rm -rf atomspace
-          # Clone the repository
-          git clone https://github.com/opencog/atomspace.git
+          # Clone the stable tag: the latest HEAD reorganized headers (e.g. ScopeLink.h
+          # moved from atoms/core/ to atoms/scope/) breaking ure and other dependents.
+          git clone --branch v5.0.3-stable https://github.com/opencog/atomspace.git
           mkdir -p atomspace/build
           cd atomspace/build
           cmake -DCMAKE_BUILD_TYPE=Release ..
