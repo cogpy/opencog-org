@@ -37,6 +37,7 @@ jobs:
         working-directory: /ws/cogutil
     steps:
       - name: Setup container environment
+        working-directory: /
         run: |
           apt-get update
           apt-get install -y git build-essential cmake libboost-all-dev \
@@ -44,6 +45,7 @@ jobs:
             pkg-config ccache curl
 
       - name: Start restoring ccache
+        working-directory: /
         run: |
           mkdir -p /ws
           date +%d-%m-%Y > /tmp/date
@@ -123,6 +125,7 @@ jobs:
         working-directory: /ws/atomspace
     steps:
       - name: Setup container environment
+        working-directory: /
         run: |
           apt-get update
           apt-get install -y git build-essential cmake libboost-all-dev \
@@ -135,6 +138,11 @@ jobs:
         with:
           name: cogutil-workspace
           path: /ws
+
+
+      - name: Create workspace directory
+        working-directory: /
+        run: mkdir -p /ws/atomspace
 
       - name: Checkout AtomSpace
         run: |
@@ -210,6 +218,7 @@ jobs:
         working-directory: /ws/atomspace-rocks
     steps:
       - name: Setup container environment
+        working-directory: /
         run: |
           apt-get update
           apt-get install -y git build-essential cmake libboost-all-dev \
@@ -220,6 +229,11 @@ jobs:
         with:
           name: atomspace-workspace
           path: /ws
+
+
+      - name: Create workspace directory
+        working-directory: /
+        run: mkdir -p /ws/atomspace-rocks
 
       - name: Install previous dependencies
         run: |
@@ -273,6 +287,7 @@ jobs:
         working-directory: /ws/atomspace-restful
     steps:
       - name: Setup container environment
+        working-directory: /
         run: |
           apt-get update
           apt-get install -y git build-essential cmake libboost-all-dev \
@@ -283,6 +298,11 @@ jobs:
         with:
           name: atomspace-workspace
           path: /ws
+
+
+      - name: Create workspace directory
+        working-directory: /
+        run: mkdir -p /ws/atomspace-restful
 
       - name: Install previous dependencies
         run: |
@@ -340,6 +360,7 @@ jobs:
         working-directory: /ws/unify
     steps:
       - name: Setup container environment
+        working-directory: /
         run: |
           apt-get update
           apt-get install -y git build-essential cmake libboost-all-dev \
@@ -350,6 +371,11 @@ jobs:
         with:
           name: atomspace-workspace
           path: /ws
+
+
+      - name: Create workspace directory
+        working-directory: /
+        run: mkdir -p /ws/unify
 
       - name: Install previous dependencies
         run: |
@@ -403,6 +429,7 @@ jobs:
         working-directory: /ws/ure
     steps:
       - name: Setup container environment
+        working-directory: /
         run: |
           apt-get update
           apt-get install -y git build-essential cmake libboost-all-dev \
@@ -478,6 +505,7 @@ jobs:
         working-directory: /ws/cogserver
     steps:
       - name: Setup container environment
+        working-directory: /
         run: |
           apt-get update
           apt-get install -y git build-essential cmake libboost-all-dev \
@@ -489,6 +517,11 @@ jobs:
         with:
           name: atomspace-workspace
           path: /ws
+
+
+      - name: Create workspace directory
+        working-directory: /
+        run: mkdir -p /ws/cogserver
 
       - name: Install previous dependencies
         run: |
@@ -549,6 +582,7 @@ jobs:
         working-directory: /ws/attention
     steps:
       - name: Setup container environment
+        working-directory: /
         run: |
           apt-get update
           apt-get install -y git build-essential cmake libboost-all-dev \
@@ -632,6 +666,7 @@ jobs:
         working-directory: /ws/spacetime
     steps:
       - name: Setup container environment
+        working-directory: /
         run: |
           apt-get update
           apt-get install -y git build-essential cmake libboost-all-dev \
@@ -642,6 +677,11 @@ jobs:
         with:
           name: atomspace-workspace
           path: /ws
+
+
+      - name: Create workspace directory
+        working-directory: /
+        run: mkdir -p /ws/spacetime
 
       - name: Install previous dependencies
         run: |
@@ -698,6 +738,7 @@ jobs:
         working-directory: /ws/pln
     steps:
       - name: Setup container environment
+        working-directory: /
         run: |
           apt-get update
           apt-get install -y git build-essential cmake libboost-all-dev \
@@ -776,6 +817,7 @@ jobs:
         working-directory: /ws/miner
     steps:
       - name: Setup container environment
+        working-directory: /
         run: |
           apt-get update
           apt-get install -y git build-essential cmake libboost-all-dev \
@@ -863,6 +905,7 @@ jobs:
         working-directory: /ws/moses
     steps:
       - name: Setup container environment
+        working-directory: /
         run: |
           apt-get update
           apt-get install -y git build-essential cmake libboost-all-dev \
@@ -873,6 +916,11 @@ jobs:
         with:
           name: cogutil-workspace
           path: /ws
+
+
+      - name: Create workspace directory
+        working-directory: /
+        run: mkdir -p /ws/moses
 
       - name: Install previous dependencies
         run: |
@@ -924,6 +972,7 @@ jobs:
         working-directory: /ws/asmoses
     steps:
       - name: Setup container environment
+        working-directory: /
         run: |
           apt-get update
           apt-get install -y git build-essential cmake libboost-all-dev \
@@ -998,6 +1047,7 @@ jobs:
         working-directory: /ws/lg-atomese
     steps:
       - name: Setup container environment
+        working-directory: /
         run: |
           apt-get update
           apt-get install -y git build-essential cmake libboost-all-dev \
@@ -1009,6 +1059,11 @@ jobs:
         with:
           name: atomspace-workspace
           path: /ws
+
+
+      - name: Create workspace directory
+        working-directory: /
+        run: mkdir -p /ws/lg-atomese
 
       - name: Install previous dependencies
         run: |
@@ -1061,6 +1116,7 @@ jobs:
         working-directory: /ws/learn
     steps:
       - name: Setup container environment
+        working-directory: /
         run: |
           apt-get update
           apt-get install -y git build-essential cmake libboost-all-dev \
@@ -1131,6 +1187,7 @@ jobs:
         working-directory: /ws/language-learning
     steps:
       - name: Setup container environment
+        working-directory: /
         run: |
           apt-get update
           apt-get install -y git build-essential cmake libboost-all-dev \
@@ -1141,6 +1198,11 @@ jobs:
         with:
           name: cogutil-workspace
           path: /ws
+
+
+      - name: Create workspace directory
+        working-directory: /
+        run: mkdir -p /ws/language-learning
 
       - name: Install previous dependencies
         run: |
@@ -1180,6 +1242,7 @@ jobs:
         working-directory: /ws/opencog
     steps:
       - name: Setup container environment
+        working-directory: /
         run: |
           apt-get update
           apt-get install -y git build-essential cmake libboost-all-dev \
@@ -1288,6 +1351,7 @@ jobs:
         working-directory: /ws/cogutil
     steps:
       - name: Setup container environment
+        working-directory: /
         run: |
           apt-get update
           apt-get install -y git build-essential cmake pkg-config ccache curl
@@ -1297,6 +1361,11 @@ jobs:
         with:
           name: opencog-workspace
           path: /ws
+
+
+      - name: Create workspace directory
+        working-directory: /
+        run: mkdir -p /ws/cogutil
 
       - name: Build Debian package
         run: cd build && make install && make package
