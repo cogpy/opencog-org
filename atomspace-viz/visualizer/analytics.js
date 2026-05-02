@@ -1,0 +1,1059 @@
+// AtomSpace Analytics
+// Loads analytics pipelines from RocksDB and displays visualizations
+
+let ws = null;              // Connection to main cogserver
+let analyticsWs = null;     // Connection to analytics server
+let analyticsLoaded = false;
+let pendingCommand = null;
+let analyticsPendingCommand = null;  // 'mi-setup' or 'type-counts'
+let analyticsPort = null;   // Computed as main port + 1
+
+// State for MI selector
+const miState = {
+    relation: 'any',
+    left: 'any',
+    right: 'any',
+    relationValue: '',
+    leftValue: '',
+    rightValue: ''
+};
+
+// Raw histogram data for rebinning
+let rawHistogramBins = null;  // Array of 1600 bins at base resolution (0.05 width)
+let rawTotalCount = 0;        // Total count for normalization
+const BASE_BIN_WIDTH = 0.05;  // Base bin width (1600 bins, range [-40, +40])
+const NUM_TOTAL_BINS = 1600;
+const BIN_OFFSET = 800;       // bin 800 = MI of 0
+
+// Wrap atomese s-expression in JSON execute format for the /json endpoint
+function executeAtomese(sexpr) {
+    const escaped = sexpr
+        .replace(/\\/g, '\\\\')
+        .replace(/"/g, '\\"')
+        .replace(/[\n\r]+/g, ' ')
+        .replace(/\s+/g, ' ');
+    return `{ "tool": "execute", "params": { "atomese": "${escaped}" } }`;
+}
+
+// Bootstrap: Create child AtomSpace for analytics
+const CREATE_ATOMSPACE = '(AtomSpace "analytics" (AtomSpaceOf (Link)))';
+
+// Bootstrap: Load analytics pipelines from RocksDB and start analytics server
+// The port parameter is passed to configure the analytics server
+function makeLoadAnalytics(port) {
+    return `(Trigger
+    (PureExec
+        (AtomSpace "analytics")
+        (SetValue
+            (RocksStorageNode "rocks:///usr/local/share/cogserver/analytics")
+            (Predicate "*-open-ro-*")
+            (AtomSpace "analytics"))
+        (SetValue
+            (RocksStorageNode "rocks:///usr/local/share/cogserver/analytics")
+            (Predicate "*-load-atomspace-*"))
+        (SetValue
+            (Anchor "cfg-params")
+            (Predicate "web-port")
+            (Number ${port}))
+        (Name "bootloader")))`;
+}
+
+// Run the type-counts pipeline (sent to analytics server)
+const TYPE_COUNTS = '(Trigger (Name "type-counts"))';
+
+// Run MI computation in fresh scratch space and return histogram
+// Uses PureExec with anonymous AtomSpace so counts don't accumulate across runs
+const RUN_MI_FRESH = '(Trigger (Name "run-mi-fresh"))';
+
+document.addEventListener('DOMContentLoaded', () => {
+    setupEventListeners();
+    connect();
+});
+
+function setupEventListeners() {
+    document.getElementById('run-type-counts').addEventListener('click', runTypeCounts);
+    document.getElementById('refresh-btn').addEventListener('click', () => {
+        analyticsLoaded = false;
+        loadAnalytics();
+    });
+    setupMISelector();
+    setupBinSlider();
+}
+
+function setupBinSlider() {
+    const slider = document.getElementById('bin-slider');
+    const sliderValue = document.getElementById('bin-slider-value');
+
+    if (!slider || !sliderValue) return;
+
+    slider.addEventListener('input', (e) => {
+        const rebinFactor = parseInt(e.target.value);
+        const newBinWidth = (BASE_BIN_WIDTH * rebinFactor).toFixed(2);
+        sliderValue.textContent = newBinWidth;
+
+        // Re-render histogram with new bin width if we have data
+        if (rawHistogramBins) {
+            renderHistogram(rebinFactor);
+        }
+    });
+}
+
+function connect() {
+    const statusElement = document.getElementById('connection-status');
+
+    const savedBaseUrl = localStorage.getItem('cogserver-url');
+    const baseUrl = savedBaseUrl || `ws://${window.location.hostname}:${window.location.port}/`;
+    const serverUrl = baseUrl + 'json';
+
+    // Extract port number from URL and compute analytics port
+    const portMatch = baseUrl.match(/:(\d+)/);
+    const mainPort = portMatch ? parseInt(portMatch[1]) : 18080;
+    analyticsPort = mainPort + 1;
+    console.log('Main port:', mainPort, 'Analytics port:', analyticsPort);
+
+    console.log('Connecting to:', serverUrl);
+    statusElement.textContent = 'Connecting...';
+    statusElement.style.color = 'orange';
+
+    try {
+        ws = new WebSocket(serverUrl);
+
+        ws.onopen = () => {
+            console.log('Connected to CogServer');
+            statusElement.textContent = 'Connected';
+            statusElement.style.color = 'green';
+            loadAnalytics();
+        };
+
+        ws.onmessage = (event) => {
+            try {
+                handleResponse(event.data);
+            } catch (error) {
+                console.error('Error handling response:', error);
+                showError('Error processing response: ' + error.message);
+            }
+        };
+
+        ws.onerror = (error) => {
+            console.error('WebSocket error:', error);
+            statusElement.textContent = 'Connection Error';
+            statusElement.style.color = 'red';
+            showError('Connection error - make sure CogServer is running');
+        };
+
+        ws.onclose = () => {
+            console.log('Disconnected from CogServer');
+            statusElement.textContent = 'Disconnected';
+            statusElement.style.color = 'red';
+            disableControls();
+            setTimeout(() => {
+                statusElement.textContent = 'Reconnecting...';
+                statusElement.style.color = 'orange';
+                connect();
+            }, 3000);
+        };
+
+    } catch (error) {
+        console.error('Connection error:', error);
+        statusElement.textContent = 'Connection Failed';
+        statusElement.style.color = 'red';
+        showError('Failed to connect: ' + error.message);
+    }
+}
+
+function loadAnalytics() {
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+        showError('Not connected to server');
+        return;
+    }
+
+    const analyticsStatus = document.getElementById('analytics-status');
+    analyticsStatus.textContent = 'Loading pipelines...';
+    analyticsStatus.style.color = 'orange';
+
+    showLoading(true, 'Creating analytics AtomSpace...');
+    pendingCommand = 'create-atomspace';
+
+    const cmd = executeAtomese(CREATE_ATOMSPACE);
+    console.log('=== STEP 1: Creating analytics AtomSpace ===');
+    console.log('Raw Atomese:', CREATE_ATOMSPACE);
+    console.log('JSON command:', cmd);
+    ws.send(cmd);
+}
+
+function continueLoadAnalytics() {
+    showLoading(true, 'Loading analytics pipelines from RocksDB...');
+    pendingCommand = 'load-analytics';
+
+    console.log('Loading analytics from RocksDB, analytics port:', analyticsPort);
+    ws.send(executeAtomese(makeLoadAnalytics(analyticsPort)));
+}
+
+function runTypeCounts() {
+    if (!analyticsWs || analyticsWs.readyState !== WebSocket.OPEN) {
+        showError('Not connected to analytics server');
+        return;
+    }
+
+    if (!analyticsLoaded) {
+        showError('Analytics not loaded yet. Please wait...');
+        return;
+    }
+
+    // Disable button while running
+    document.getElementById('run-type-counts').disabled = true;
+    showLoading(true, 'Running type-counts pipeline...');
+
+    analyticsPendingCommand = 'type-counts';
+    console.log('Running type-counts pipeline on analytics server');
+    analyticsWs.send(executeAtomese(TYPE_COUNTS));
+}
+
+function handleResponse(data) {
+    console.log('Raw response:', data);
+
+    let response;
+    try {
+        response = JSON.parse(data);
+    } catch (e) {
+        console.log('Non-JSON response:', data);
+        processResult(data);
+        return;
+    }
+
+    if (response.content && Array.isArray(response.content)) {
+        if (response.isError === true) {
+            const errorText = response.content[0]?.text || 'Unknown error';
+            console.error('Server error:', errorText);
+            showError('Server error: ' + errorText);
+            showLoading(false);
+            pendingCommand = null;
+            return;
+        }
+
+        const contentText = response.content[0]?.text || '';
+        console.log('Content text:', contentText);
+
+        try {
+            const result = JSON.parse(contentText);
+            processResult(result);
+        } catch (e) {
+            processResult(contentText);
+        }
+    } else {
+        processResult(response);
+    }
+}
+
+function processResult(result) {
+    showLoading(false);
+    console.log('processResult called, pendingCommand:', pendingCommand, 'result:', result);
+
+    if (pendingCommand === 'create-atomspace') {
+        console.log('=== STEP 1 COMPLETE: Analytics AtomSpace created ===');
+        console.log('Server response:', result);
+        continueLoadAnalytics();
+    } else if (pendingCommand === 'load-analytics') {
+        console.log('Analytics loaded, connecting to analytics server on port', analyticsPort);
+        connectToAnalyticsServer();
+        pendingCommand = null;
+    } else if (pendingCommand === 'type-counts') {
+        displayTypeCountsResult(result);
+        pendingCommand = null;
+    }
+}
+
+function connectToAnalyticsServer() {
+    const savedBaseUrl = localStorage.getItem('cogserver-url');
+    const baseUrl = savedBaseUrl || `ws://${window.location.hostname}:${window.location.port}/`;
+
+    // Replace the port in the URL with the analytics port
+    const analyticsUrl = baseUrl.replace(/:\d+/, ':' + analyticsPort) + 'json';
+
+    console.log('Connecting to analytics server:', analyticsUrl);
+    showLoading(true, 'Connecting to analytics server...');
+
+    try {
+        analyticsWs = new WebSocket(analyticsUrl);
+
+        analyticsWs.onopen = () => {
+            console.log('Connected to analytics server');
+            analyticsLoaded = true;
+            document.getElementById('analytics-status').textContent = 'Loaded';
+            document.getElementById('analytics-status').style.color = 'green';
+            enableControls();
+            showLoading(false);
+        };
+
+        analyticsWs.onmessage = (event) => {
+            try {
+                handleAnalyticsResponse(event.data);
+            } catch (error) {
+                console.error('Error handling analytics response:', error);
+                showError('Error processing response: ' + error.message);
+            }
+        };
+
+        analyticsWs.onerror = (error) => {
+            console.error('Analytics WebSocket error:', error);
+            showError('Analytics server connection error');
+            showLoading(false);
+        };
+
+        analyticsWs.onclose = () => {
+            console.log('Disconnected from analytics server');
+            analyticsLoaded = false;
+            disableControls();
+        };
+
+    } catch (error) {
+        console.error('Analytics connection error:', error);
+        showError('Failed to connect to analytics server: ' + error.message);
+        showLoading(false);
+    }
+}
+
+function handleAnalyticsResponse(data) {
+    console.log('Analytics raw response:', data);
+    const currentCommand = analyticsPendingCommand;
+    analyticsPendingCommand = null;
+
+    // Check if this is an MI-related command
+    const isMICommand = currentCommand && currentCommand.startsWith('mi-');
+
+    let response;
+    try {
+        response = JSON.parse(data);
+    } catch (e) {
+        console.log('Non-JSON analytics response:', data);
+        // Non-JSON response could be an error message or unexpected output
+        if (isMICommand) {
+            console.error('MI command failed with non-JSON response:', data);
+            showError('MI computation error: ' + data);
+            showLoading(false);
+            document.getElementById('compute-mi-btn').disabled = false;
+        } else if (currentCommand === 'type-counts') {
+            displayTypeCountsResult(data);
+        }
+        return;
+    }
+
+    // Check if response looks like an error (contains "error" or "exception" in text)
+    const responseStr = JSON.stringify(response).toLowerCase();
+    if (responseStr.includes('error') || responseStr.includes('exception')) {
+        console.error('Possible error in response:', response);
+    }
+
+    if (response.content && Array.isArray(response.content)) {
+        if (response.isError === true) {
+            const errorText = response.content[0]?.text || 'Unknown error';
+            console.error('Analytics server error:', errorText);
+            showError('Analytics error: ' + errorText);
+            showLoading(false);
+            document.getElementById('run-type-counts').disabled = false;
+            document.getElementById('compute-mi-btn').disabled = false;
+            return;
+        }
+
+        const contentText = response.content[0]?.text || '';
+        console.log('Analytics content text:', contentText);
+
+        // Check if contentText looks like an error (for MI commands)
+        if (isMICommand && contentText) {
+            const lowerContent = contentText.toLowerCase();
+            if (lowerContent.includes('error') || lowerContent.includes('exception') ||
+                lowerContent.includes('throw') || lowerContent.includes('backtrace')) {
+                console.error('MI command returned error:', contentText);
+                showError('MI computation error: ' + contentText.substring(0, 200));
+                showLoading(false);
+                document.getElementById('compute-mi-btn').disabled = false;
+                return;
+            }
+        }
+
+        if (currentCommand === 'mi-setup') {
+            // Step 2: Run MI in fresh scratch space (returns histogram directly)
+            console.log('MI setup complete, running MI computation in scratch space');
+            showLoading(true, 'Computing MI in scratch space...');
+            analyticsPendingCommand = 'mi-fresh';
+            analyticsWs.send(executeAtomese(RUN_MI_FRESH));
+            return;
+        } else if (currentCommand === 'mi-fresh') {
+            // Step 3: Display the histogram (returned directly from run-mi-fresh)
+            console.log('MI histogram received:', contentText);
+            try {
+                const histData = JSON.parse(contentText);
+                displayMIHistogram(histData);
+            } catch (e) {
+                displayMIHistogram(contentText);
+            }
+            showLoading(false);
+            document.getElementById('compute-mi-btn').disabled = false;
+            return;
+        } else {
+            try {
+                const result = JSON.parse(contentText);
+                displayTypeCountsResult(result);
+            } catch (e) {
+                displayTypeCountsResult(contentText);
+            }
+            showLoading(false);
+            document.getElementById('run-type-counts').disabled = false;
+        }
+    } else {
+        // Check if response looks like an error (for MI commands)
+        if (isMICommand) {
+            const responseStr = JSON.stringify(response).toLowerCase();
+            if (responseStr.includes('error') || responseStr.includes('exception') ||
+                responseStr.includes('throw') || responseStr.includes('backtrace')) {
+                console.error('MI command returned error (no content):', response);
+                showError('MI computation error: ' + JSON.stringify(response).substring(0, 200));
+                showLoading(false);
+                document.getElementById('compute-mi-btn').disabled = false;
+                return;
+            }
+        }
+
+        if (currentCommand === 'mi-setup') {
+            // Step 2: Run MI in fresh scratch space (returns histogram directly)
+            console.log('MI setup complete (alt format), running MI in scratch space');
+            showLoading(true, 'Computing MI in scratch space...');
+            analyticsPendingCommand = 'mi-fresh';
+            analyticsWs.send(executeAtomese(RUN_MI_FRESH));
+        } else if (currentCommand === 'mi-fresh') {
+            // Step 3: Display the histogram (returned directly from run-mi-fresh)
+            console.log('MI histogram received (alt format):', response);
+            displayMIHistogram(response);
+            showLoading(false);
+            document.getElementById('compute-mi-btn').disabled = false;
+        } else {
+            displayTypeCountsResult(response);
+            showLoading(false);
+            document.getElementById('run-type-counts').disabled = false;
+        }
+    }
+}
+
+function displayTypeCountsResult(result) {
+    console.log('Type counts result:', result);
+
+    const chartContainer = document.getElementById('chart-container');
+    const barChart = document.getElementById('bar-chart');
+    const summaryPanel = document.getElementById('results-summary');
+    const summaryText = document.getElementById('summary-text');
+
+    barChart.innerHTML = '';
+
+    let typeCounts = [];
+
+    // Parse the result - expecting LinkValue table format:
+    // { "type": "LinkValue", "value": [
+    //   { "type": "LinkValue", "value": [
+    //     { "type": "Type", "name": "ConceptNode" },
+    //     { "type": "FloatValue", "value": [0, 0, 42] }
+    //   ]},
+    //   ...
+    // ]}
+    if (result && result.type === 'LinkValue' && Array.isArray(result.value)) {
+        for (const row of result.value) {
+            if (row && row.type === 'LinkValue' && Array.isArray(row.value) && row.value.length >= 2) {
+                const typeEntry = row.value[0];
+                const countEntry = row.value[1];
+
+                // Extract type name
+                let typeName = '';
+                if (typeEntry && typeEntry.type === 'Type' && typeEntry.name) {
+                    typeName = typeEntry.name;
+                } else if (typeEntry && typeEntry.name) {
+                    typeName = typeEntry.name;
+                } else if (typeof typeEntry === 'string') {
+                    typeName = typeEntry;
+                }
+
+                // Extract count (third element of FloatValue vector [0, 0, count])
+                let count = 0;
+                if (countEntry && countEntry.type === 'FloatValue' && Array.isArray(countEntry.value)) {
+                    count = countEntry.value[2] || countEntry.value[0] || 0;
+                } else if (typeof countEntry === 'number') {
+                    count = countEntry;
+                }
+
+                if (typeName && count > 0) {
+                    typeCounts.push({ type: typeName, count: Math.round(count) });
+                }
+            }
+        }
+    } else if (Array.isArray(result)) {
+        // Fallback: plain array of rows
+        for (const item of result) {
+            if (Array.isArray(item) && item.length >= 2) {
+                typeCounts.push({ type: String(item[0]), count: parseInt(item[1]) });
+            }
+        }
+    } else if (typeof result === 'string') {
+        // Fallback: parse string output
+        const lines = result.split('\n').filter(line => line.trim());
+        for (const line of lines) {
+            const match = line.match(/^\s*(\S+)\s+(\d+)\s*$/);
+            if (match) {
+                typeCounts.push({ type: match[1], count: parseInt(match[2]) });
+            }
+        }
+    }
+
+    if (typeCounts.length === 0) {
+        barChart.innerHTML = `<pre style="color: var(--text-primary); white-space: pre-wrap;">${JSON.stringify(result, null, 2)}</pre>`;
+        chartContainer.classList.remove('hidden');
+        summaryPanel.classList.add('hidden');
+        return;
+    }
+
+    typeCounts.sort((a, b) => b.count - a.count);
+
+    const maxCount = typeCounts[0]?.count || 1;
+
+    for (const item of typeCounts) {
+        const row = document.createElement('div');
+        row.className = 'bar-row';
+
+        const label = document.createElement('div');
+        label.className = 'bar-label';
+        label.textContent = item.type;
+        label.title = item.type;
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'bar-wrapper';
+
+        const bar = document.createElement('div');
+        bar.className = 'bar';
+        // Log scale for wide-ranging counts
+        const logMax = Math.log10(maxCount + 1);
+        const logVal = Math.log10(item.count + 1);
+        bar.style.width = `${(logVal / logMax) * 100}%`;
+
+        const value = document.createElement('div');
+        value.className = 'bar-value';
+        value.textContent = item.count.toLocaleString();
+
+        wrapper.appendChild(bar);
+        row.appendChild(label);
+        row.appendChild(wrapper);
+        row.appendChild(value);
+        barChart.appendChild(row);
+    }
+
+    const totalAtoms = typeCounts.reduce((sum, item) => sum + item.count, 0);
+    summaryText.textContent = `Found ${typeCounts.length} atom types with ${totalAtoms.toLocaleString()} total atoms. (Log scale)`;
+
+    chartContainer.classList.remove('hidden');
+    summaryPanel.classList.remove('hidden');
+}
+
+function displayMIResult(result) {
+    console.log('MI result:', result);
+
+    const resultEl = document.getElementById('mi-result');
+    const countEl = document.getElementById('mi-count-value');
+
+    if (!resultEl || !countEl) {
+        console.error('MI result elements not found');
+        return;
+    }
+
+    let count = 0;
+
+    // Parse the result - expecting FloatValue format:
+    // { "type": "FloatValue", "value": [count] }
+    if (result && result.type === 'FloatValue' && Array.isArray(result.value)) {
+        count = result.value[0] || 0;
+    } else if (typeof result === 'number') {
+        count = result;
+    } else if (typeof result === 'string') {
+        // Try to parse as number
+        const parsed = parseFloat(result);
+        if (!isNaN(parsed)) {
+            count = parsed;
+        }
+    }
+
+    count = Math.round(count);
+    countEl.textContent = count.toLocaleString() + ' pairs found';
+    resultEl.classList.remove('hidden');
+}
+
+function displayMIHistogram(result) {
+    console.log('MI histogram data:', result);
+
+    const chartContainer = document.getElementById('chart-container');
+    const barChart = document.getElementById('bar-chart');
+    const summaryPanel = document.getElementById('results-summary');
+    const sliderContainer = document.getElementById('bin-slider-container');
+
+    if (!barChart) {
+        console.error('Bar chart element not found');
+        return;
+    }
+
+    barChart.innerHTML = '';
+
+    // Parse binned histogram data from server into raw bins array
+    // Format: { "type": "LinkValue", "value": [
+    //   { "type": "LinkValue", "value": [
+    //     { "type": "NumberNode", "name": "805" },
+    //     { "type": "FloatValue", "value": [count] }
+    //   ]}, ...
+    // ]}
+    rawHistogramBins = new Array(NUM_TOTAL_BINS).fill(0);
+    rawTotalCount = 0;
+
+    if (result && result.type === 'LinkValue' && Array.isArray(result.value)) {
+        for (const row of result.value) {
+            if (row && row.type === 'LinkValue' && Array.isArray(row.value) && row.value.length >= 2) {
+                const binEntry = row.value[0];
+                const countEntry = row.value[1];
+
+                let binIndex = -1;
+                if (binEntry && binEntry.type === 'NumberNode' && binEntry.name) {
+                    binIndex = parseInt(binEntry.name);
+                }
+
+                let count = 0;
+                if (countEntry && countEntry.type === 'FloatValue' && Array.isArray(countEntry.value)) {
+                    count = countEntry.value[0] || 0;
+                }
+
+                if (binIndex >= 0 && binIndex < NUM_TOTAL_BINS && count > 0) {
+                    rawHistogramBins[binIndex] = count;
+                    rawTotalCount += count;
+                }
+            }
+        }
+    }
+
+    if (rawTotalCount === 0) {
+        barChart.innerHTML = '<div style="color: var(--text-secondary); padding: 20px;">No histogram data found</div>';
+        chartContainer.classList.remove('hidden');
+        summaryPanel.classList.add('hidden');
+        if (sliderContainer) sliderContainer.classList.add('hidden');
+        return;
+    }
+
+    // Show the slider and reset to default
+    if (sliderContainer) {
+        sliderContainer.classList.remove('hidden');
+        const slider = document.getElementById('bin-slider');
+        const sliderValue = document.getElementById('bin-slider-value');
+        if (slider) slider.value = '1';
+        if (sliderValue) sliderValue.textContent = BASE_BIN_WIDTH.toFixed(2);
+    }
+
+    chartContainer.classList.remove('hidden');
+    summaryPanel.classList.remove('hidden');
+
+    // Render with default bin width (rebinFactor = 1)
+    renderHistogram(1);
+}
+
+function renderHistogram(rebinFactor) {
+    const barChart = document.getElementById('bar-chart');
+    const summaryText = document.getElementById('summary-text');
+
+    if (!barChart || !rawHistogramBins) return;
+
+    barChart.innerHTML = '';
+
+    const binWidth = BASE_BIN_WIDTH * rebinFactor;
+    const numRebinnedBins = Math.ceil(NUM_TOTAL_BINS / rebinFactor);
+
+    // Combine bins according to rebinFactor
+    const rebinnedBins = new Array(numRebinnedBins).fill(0);
+    for (let i = 0; i < NUM_TOTAL_BINS; i++) {
+        const newBin = Math.floor(i / rebinFactor);
+        rebinnedBins[newBin] += rawHistogramBins[i];
+    }
+
+    // Find range of non-zero bins
+    let minBin = numRebinnedBins, maxBin = 0;
+    for (let i = 0; i < numRebinnedBins; i++) {
+        if (rebinnedBins[i] > 0) {
+            minBin = Math.min(minBin, i);
+            maxBin = Math.max(maxBin, i);
+        }
+    }
+
+    // Normalize to probability density: p(x) = count / (total * binWidth)
+    const density = rebinnedBins.map(count => count / (rawTotalCount * binWidth));
+
+    // Rebinned offset: bin 0 in rebinned corresponds to original bin 0
+    const rebinnedOffset = BIN_OFFSET / rebinFactor;
+
+    // Compute MI range from bin indices
+    const minMI = (minBin - rebinnedOffset) * binWidth;
+    const maxMI = (maxBin - rebinnedOffset) * binWidth;
+
+    // Use the bin range from the data, with padding
+    const padding = Math.max(1, Math.ceil(10 / rebinFactor));
+    let firstNonZero = Math.max(0, minBin - padding);
+    let lastNonZero = Math.min(numRebinnedBins - 1, maxBin + padding);
+
+    const maxDensity = Math.max(...density.slice(firstNonZero, lastNonZero + 1));
+    const numBins = lastNonZero - firstNonZero + 1;
+
+    // SVG dimensions
+    const width = 700;
+    const height = 300;
+    const margin = { top: 20, right: 30, bottom: 40, left: 60 };
+    const plotWidth = width - margin.left - margin.right;
+    const plotHeight = height - margin.top - margin.bottom;
+
+    // Create SVG
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('width', width);
+    svg.setAttribute('height', height);
+    svg.style.display = 'block';
+    svg.style.margin = '0 auto';
+
+    // Semi-log scale: linear X, logarithmic Y for probability density
+    const epsilon = 1e-10;
+    const logMax = Math.log10(maxDensity + epsilon);
+    const logMin = Math.log10(epsilon);
+    const xScale = (bin) => margin.left + ((bin - firstNonZero) / numBins) * plotWidth;
+    const yScale = (d) => {
+        if (d <= 0) return margin.top + plotHeight;
+        const logVal = Math.log10(d + epsilon);
+        return margin.top + plotHeight - ((logVal - logMin) / (logMax - logMin)) * plotHeight;
+    };
+
+    // Draw grid lines for log scale (at powers of 10)
+    const gridGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    gridGroup.setAttribute('stroke', '#333');
+    gridGroup.setAttribute('stroke-width', '0.5');
+
+    const minPower = Math.floor(Math.log10(maxDensity * 0.001));
+    const maxPower = Math.ceil(Math.log10(maxDensity));
+    for (let p = minPower; p <= maxPower; p++) {
+        const d = Math.pow(10, p);
+        const y = yScale(d);
+        if (y >= margin.top && y <= margin.top + plotHeight) {
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line.setAttribute('x1', margin.left);
+            line.setAttribute('y1', y);
+            line.setAttribute('x2', width - margin.right);
+            line.setAttribute('y2', y);
+            gridGroup.appendChild(line);
+        }
+    }
+    svg.appendChild(gridGroup);
+
+    // Build path for line graph using normalized density
+    let pathD = '';
+    for (let i = firstNonZero; i <= lastNonZero; i++) {
+        const x = xScale(i);
+        const y = yScale(density[i]);
+        if (i === firstNonZero) {
+            pathD += `M ${x} ${y}`;
+        } else {
+            pathD += ` L ${x} ${y}`;
+        }
+    }
+
+    // Draw filled area under the line
+    const areaPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    const areaD = pathD + ` L ${xScale(lastNonZero)} ${yScale(0)} L ${xScale(firstNonZero)} ${yScale(0)} Z`;
+    areaPath.setAttribute('d', areaD);
+    areaPath.setAttribute('fill', 'rgba(59, 130, 246, 0.3)');
+    areaPath.setAttribute('stroke', 'none');
+    svg.appendChild(areaPath);
+
+    // Draw the line
+    const linePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    linePath.setAttribute('d', pathD);
+    linePath.setAttribute('fill', 'none');
+    linePath.setAttribute('stroke', '#3b82f6');
+    linePath.setAttribute('stroke-width', '2');
+    svg.appendChild(linePath);
+
+    // Draw axes
+    const axisGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    axisGroup.setAttribute('stroke', '#666');
+    axisGroup.setAttribute('stroke-width', '1');
+
+    // X-axis
+    const xAxis = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    xAxis.setAttribute('x1', margin.left);
+    xAxis.setAttribute('y1', margin.top + plotHeight);
+    xAxis.setAttribute('x2', width - margin.right);
+    xAxis.setAttribute('y2', margin.top + plotHeight);
+    axisGroup.appendChild(xAxis);
+
+    // Y-axis
+    const yAxis = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    yAxis.setAttribute('x1', margin.left);
+    yAxis.setAttribute('y1', margin.top);
+    yAxis.setAttribute('x2', margin.left);
+    yAxis.setAttribute('y2', margin.top + plotHeight);
+    axisGroup.appendChild(yAxis);
+    svg.appendChild(axisGroup);
+
+    // X-axis labels (MI values)
+    const xLabels = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    xLabels.setAttribute('fill', '#999');
+    xLabels.setAttribute('font-size', '11');
+    xLabels.setAttribute('text-anchor', 'middle');
+
+    const xTickCount = Math.min(10, numBins);
+    const xTickStep = Math.ceil(numBins / xTickCount);
+    for (let i = firstNonZero; i <= lastNonZero; i += xTickStep) {
+        const miVal = (i - rebinnedOffset) * binWidth;
+        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        text.setAttribute('x', xScale(i));
+        text.setAttribute('y', margin.top + plotHeight + 20);
+        text.textContent = miVal.toFixed(1);
+        xLabels.appendChild(text);
+    }
+    svg.appendChild(xLabels);
+
+    // X-axis title
+    const xTitle = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    xTitle.setAttribute('x', margin.left + plotWidth / 2);
+    xTitle.setAttribute('y', height - 5);
+    xTitle.setAttribute('fill', '#999');
+    xTitle.setAttribute('font-size', '12');
+    xTitle.setAttribute('text-anchor', 'middle');
+    xTitle.textContent = 'MI (bits)';
+    svg.appendChild(xTitle);
+
+    // Y-axis labels (probability density on log scale)
+    const yLabels = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    yLabels.setAttribute('fill', '#999');
+    yLabels.setAttribute('font-size', '11');
+    yLabels.setAttribute('text-anchor', 'end');
+
+    for (let p = minPower; p <= maxPower; p++) {
+        const d = Math.pow(10, p);
+        const y = yScale(d);
+        if (y >= margin.top && y <= margin.top + plotHeight) {
+            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            text.setAttribute('x', margin.left - 8);
+            text.setAttribute('y', y + 4);
+            if (d < 0.01) {
+                text.textContent = d.toExponential(0);
+            } else if (d < 1) {
+                text.textContent = d.toFixed(2);
+            } else {
+                text.textContent = d.toFixed(1);
+            }
+            yLabels.appendChild(text);
+        }
+    }
+    svg.appendChild(yLabels);
+
+    // Y-axis title
+    const yTitle = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    yTitle.setAttribute('x', 15);
+    yTitle.setAttribute('y', margin.top + plotHeight / 2);
+    yTitle.setAttribute('fill', '#999');
+    yTitle.setAttribute('font-size', '12');
+    yTitle.setAttribute('text-anchor', 'middle');
+    yTitle.setAttribute('transform', `rotate(-90, 15, ${margin.top + plotHeight / 2})`);
+    yTitle.textContent = 'p(MI)';
+    svg.appendChild(yTitle);
+
+    barChart.appendChild(svg);
+
+    summaryText.textContent = `MI Distribution: ${rawTotalCount.toLocaleString()} pairs, range [${minMI.toFixed(2)}, ${maxMI.toFixed(2)}], bin width ${binWidth.toFixed(2)} (semi-log)`;
+}
+
+function enableControls() {
+    document.getElementById('run-type-counts').disabled = false;
+    document.getElementById('refresh-btn').disabled = false;
+}
+
+function disableControls() {
+    document.getElementById('run-type-counts').disabled = true;
+    document.getElementById('refresh-btn').disabled = true;
+    analyticsLoaded = false;
+}
+
+function showLoading(show, message = 'Loading...') {
+    const loadingPanel = document.getElementById('loading-panel');
+    const loadingMessage = document.getElementById('loading-message');
+    if (show) {
+        loadingMessage.textContent = message;
+        loadingPanel.classList.remove('hidden');
+    } else {
+        loadingPanel.classList.add('hidden');
+    }
+}
+
+function showError(message) {
+    const errorPanel = document.getElementById('error-panel');
+    const errorMessage = document.getElementById('error-message');
+    if (message) {
+        errorMessage.textContent = message;
+        errorPanel.classList.remove('hidden');
+    } else {
+        errorPanel.classList.add('hidden');
+    }
+}
+
+// MI Selector functions
+
+// Build the Atomese pattern based on current MI selector state
+function buildMIPattern() {
+    const positions = ['relation', 'left', 'right'];
+    const selected = positions.filter(pos => miState[pos] === 'selected');
+
+    if (selected.length !== 2) {
+        return null;
+    }
+
+    // Map selected positions to variable names (first selected → "left", second → "right")
+    const varMap = {};
+    varMap[selected[0]] = 'left';
+    varMap[selected[1]] = 'right';
+
+    // Type mapping for each position
+    const typeMap = {
+        relation: 'Predicate',
+        left: 'Item',
+        right: 'Item'
+    };
+
+    // Build the Atomese representation for each position
+    function buildPosition(pos) {
+        const type = typeMap[pos];
+        if (miState[pos] === 'selected') {
+            return `(Variable "${varMap[pos]}")`;
+        } else if (miState[pos] === 'fixed') {
+            const value = miState[pos + 'Value'] || '';
+            return `(${type} "${value}")`;
+        } else {
+            return `(Signature (Type '${type}))`;
+        }
+    }
+
+    const relationPart = buildPosition('relation');
+    const leftPart = buildPosition('left');
+    const rightPart = buildPosition('right');
+
+    const pattern = `(Edge ${relationPart}\n    (List ${leftPart} ${rightPart}))`;
+    const meet = `(Meet (VariableList (Variable "left") (Variable "right")) ${pattern})`;
+
+    // Store just the Meet pattern - counts are stored on Anchor with compound keys
+    const setup = `(SetValue (Anchor "analytics") (Predicate "pair generator") (DontExec ${meet}))`;
+
+    return { pattern, meet, setup };
+}
+
+function setupMISelector() {
+    const positions = ['relation', 'left', 'right'];
+
+    positions.forEach(pos => {
+        const select = document.getElementById(`mi-${pos}`);
+        const input = document.getElementById(`mi-${pos}-value`);
+
+        if (!select || !input) {
+            return;
+        }
+
+        // Initialize state from current DOM values
+        miState[pos] = select.value;
+        miState[pos + 'Value'] = input.value;
+
+        select.addEventListener('change', (e) => {
+            miState[pos] = e.target.value;
+            input.classList.toggle('hidden', e.target.value !== 'fixed');
+            updateMIValidation();
+        });
+
+        input.addEventListener('input', (e) => {
+            miState[pos + 'Value'] = e.target.value;
+            updateMIValidation();
+        });
+    });
+
+    const computeBtn = document.getElementById('compute-mi-btn');
+    if (computeBtn) {
+        computeBtn.addEventListener('click', computeMI);
+    }
+}
+
+function updateMIValidation() {
+    const positions = ['relation', 'left', 'right'];
+
+    // Sync state from DOM to ensure consistency
+    positions.forEach(pos => {
+        const select = document.getElementById(`mi-${pos}`);
+        const input = document.getElementById(`mi-${pos}-value`);
+        if (select) {
+            miState[pos] = select.value;
+        }
+        if (input) {
+            miState[pos + 'Value'] = input.value;
+        }
+    });
+
+    const selected = positions.filter(pos => miState[pos] === 'selected');
+
+    const statusEl = document.getElementById('mi-status');
+    const computeBtn = document.getElementById('compute-mi-btn');
+    const patternDisplay = document.getElementById('mi-pattern-display');
+    const patternText = document.getElementById('mi-pattern-text');
+
+    if (!statusEl || !computeBtn) {
+        return;
+    }
+
+    if (selected.length === 2) {
+        const labels = selected.map(pos => pos.charAt(0).toUpperCase() + pos.slice(1));
+        statusEl.textContent = `Selected: ${labels.join(', ')}`;
+        statusEl.classList.add('valid');
+        statusEl.classList.remove('invalid');
+        computeBtn.disabled = false;
+
+        // Display the generated pattern
+        const result = buildMIPattern();
+        if (result && patternDisplay && patternText) {
+            patternText.textContent = result.pattern;
+            patternDisplay.classList.remove('hidden');
+        }
+    } else {
+        statusEl.textContent = `Select exactly 2 positions for MI computation (currently ${selected.length})`;
+        statusEl.classList.remove('valid');
+        statusEl.classList.add('invalid');
+        computeBtn.disabled = true;
+
+        // Hide pattern display
+        if (patternDisplay) {
+            patternDisplay.classList.add('hidden');
+        }
+    }
+}
+
+function computeMI() {
+    const result = buildMIPattern();
+
+    if (!result) {
+        showError('Please select exactly 2 positions for MI computation');
+        return;
+    }
+
+    if (!analyticsWs || analyticsWs.readyState !== WebSocket.OPEN) {
+        showError('Not connected to analytics server');
+        return;
+    }
+
+    // Disable button while processing
+    const btn = document.getElementById('compute-mi-btn');
+    if (btn) btn.disabled = true;
+
+    showLoading(true, 'Setting up pair generator...');
+
+    console.log('Sending MI setup to analytics server:', result.setup);
+    console.log('Atomese command:', executeAtomese(result.setup));
+
+    analyticsPendingCommand = 'mi-setup';
+    // Send the setup to the analytics server
+    analyticsWs.send(executeAtomese(result.setup));
+}
